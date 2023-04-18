@@ -1,0 +1,338 @@
+/*
+    tAxI's Advanced Object System Library for SA-MP Multiplayer Modification
+    of Grand Theft Auto - San Andreas.
+
+    Copyright (C) 2008  Chris Johnstone (tAxI/Necrioss)
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program. If not, see <http://www.gnu.org/licenses/>.
+
+	-=============================================================================================-
+	|=============================================================================================|
+	|-----------------------------------------DESCRIPTION-----------------------------------------|
+	|=============================================================================================|
+	|                                                                                             |
+	|THIS SYSTEM WILL ADD A FULLY FUNCTIONING OBJECT MANAGER TO YOUR SERVER ALLOWING UP TO        |
+	|3000 OBJECTS TO BE ACTIVE PER PLAYER ESSENTIALLY EXTENDING THE EXISTING SYSTEM AD IMPROVING  |
+	|THE ORIGINAL. ITS EASY TO MANAGE AND EVEN ALLOWS CHANGING OF OBJECT MODELS ON THE FLY ETC!       |
+	|                                                                                             |
+ 	|=============================================================================================|
+ 	|=============================================================================================|
+	|NOTES:                                                                                       |
+	|=============================================================================================|
+ 	|=============================================================================================|
+	|                                                                                             |
+	|THIS SYSTEM IS VERY VERY SIMPLE SO IT SHOULD BE A STRAIGHT FORWARD ADDITION TO YOUR OWN      |
+	|BUT IF YOU HAVE PROBLEMS FEEL FREE TO CANTACT ME, <tAxI>, ON THE SA-MP FORUMS AT             |
+	|HTTP://FORUM.SA-MP.CO.UK. ENJOY!
+ 	|                                                                                             |
+	|=============================================================================================|
+ 	|=============================================================================================|
+	|NATIVE AND AVAILLABLE COMMAND FUNCTIONS:                                                     |
+	|=============================================================================================|
+ 	|=============================================================================================|
+
+				native CreateStreamObject(modelid,Float:x,Float:y,Float:z,Float:xrot,Float:yrot,Float:zrot,Float:spawn_dist)
+				native DestroyStreamObject(objectid)
+				native AttachStreamObjectToPlayer(objectid,playerid,Float:xoffset,Float:yoffset,Float:zoffset,Float:rotX,Float:rotY,Float:rotZ)
+				native DetachStreamObjectFromPlayer(playerid)
+				native IsAnyObjectAttachedToPlayer(playerid)
+				native GetPlayerAttachedObject(playerid)
+				native IsObjectAttachedToPlayer(objectid,playerid)
+				native IsObjectAttachedToAnyPlayer(objectid)
+				native MoveStreamObject(objectid,Float:X,Float:Y,Float:Z,Float:Speed)
+				native StopStreamObject(objectid)
+				native IsValidPlayerStreamObject(objectid,playerid)
+				native SetObjectInfo(objectid,modelid,Float:X,Float:Y,Float:Z,Float:rotX,Float:rotY,Float:rotZ)
+				native -----------------------------------------------------------------------------------------
+
+	|=============================================================================================|
+	-=============================================================================================-
+
+*/
+
+//=================SYSTEM REQUIRED DEFINES===================//
+
+#define MAX_OVERALL_OBJECTS 3000
+#define MAX_ACTIVE_OBJECTS 245
+#define MAX_SECTOR_OBJECTS 200
+
+//===============SYSTEM VARIABLES **DO NOT TOUCH!!!!**==========================//
+
+enum OBInfo {Float:x_ent,Float:y_ent,Float:z_ent,Float:x_rot,Float:y_rot,Float:z_rot,Float:x_off,Float:y_off,Float:z_off,Float:x_rt,Float:y_rt,Float:z_rt,model,valid,Float:spawndist,id_prev_used,attached,a_player};
+new ObjectVar[MAX_OVERALL_OBJECTS][OBInfo];
+new overallobjectcount = 0;
+new OBstreamcount[MAX_PLAYERS];
+new ObjectStatus[MAX_PLAYERS][MAX_OVERALL_OBJECTS];
+new ObjectID[MAX_PLAYERS][MAX_OVERALL_OBJECTS];
+new SectorObjects[MAX_SECTORS][MAX_SECTOR_OBJECTS];
+new SectorObjectCount[MAX_SECTORS];
+new ObjectNull[MAX_PLAYERS][MAX_OVERALL_OBJECTS];
+new PlAO[MAX_PLAYERS];
+new ObjAtt[MAX_PLAYERS][MAX_OVERALL_OBJECTS];
+
+//========SYSTEM FORWARDS========//
+
+//============SYSTEM CORE PROCESSES ** NO FIDDLING WITH THESE!!! **==========//
+
+stock StreamObjects(playerid,v1,v2,v3,v4,v5,v6,v7,v8,v9)
+{
+    new p,i;
+    new sec[9];
+    sec[0] = v1;
+    sec[1] = v2;
+    sec[2] = v3;
+    sec[3] = v4;
+    sec[4] = v5;
+    sec[5] = v6;
+    sec[6] = v7;
+    sec[7] = v8;
+    sec[8] = v9;
+    for(new k = 0;k<8;k++) {
+        i = sec[k];
+        if(vSecActive[i] == 1) {
+    		for(new j = 1;j<=SectorObjectCount[i];j++) {
+        		p = SectorObjects[i][j];
+				if(ObjectStatus[playerid][p] == 0 && PlayerClose(playerid,ObjectVar[p][x_ent],ObjectVar[p][y_ent],ObjectVar[p][z_ent],ObjectVar[p][spawndist]) == 1 && ObjectVar[p][attached] == 0) {
+					if(OBstreamcount[playerid] < MAX_ACTIVE_OBJECTS) {
+					    OBstreamcount[playerid]++;
+					    ObjectID[playerid][p] = CreatePlayerObject(playerid,ObjectVar[p][model],ObjectVar[p][x_ent],ObjectVar[p][y_ent],ObjectVar[p][z_ent],ObjectVar[p][x_rot],ObjectVar[p][y_rot],ObjectVar[p][z_rot]);
+						ObjectStatus[playerid][p] = 1;
+					}
+				}
+			}
+    	}
+ 	}
+ 	for(new n = 0;n<overallobjectcount;n++) {
+ 	    if(ObjectVar[n][valid] == 1) {
+ 	    	if(ObjectVar[n][attached] == 1) {
+				PlayerViewAttachedObject(playerid,n);
+			}
+        	if(ObjectVar[n][attached] == 0 && ObjectStatus[playerid][n] == 1 && PlayerClose(playerid,ObjectVar[n][x_ent],ObjectVar[n][y_ent],ObjectVar[n][z_ent],ObjectVar[n][spawndist]) == 0) {
+			   	DestroyPlayerObject(playerid,ObjectID[playerid][n]);
+			   	OBstreamcount[playerid]--;
+			   	ObjectStatus[playerid][n] = 0;
+			}
+		}
+    }
+}
+
+stock PlayerViewAttachedObject(playerid,objectid)
+{
+	if(ObjectStatus[playerid][objectid] == 1 && ObjAtt[playerid][objectid] == 0) {
+	    ObjAtt[playerid][objectid] = 1;
+	    AttachPlayerObjectToPlayer(playerid,ObjectID[playerid][objectid],ObjectVar[objectid][a_player],ObjectVar[objectid][x_off],ObjectVar[objectid][y_off],ObjectVar[objectid][z_off],ObjectVar[objectid][x_rt],ObjectVar[objectid][y_rt],ObjectVar[objectid][z_rt]);
+		return 1;
+	}
+	new Float:posx,Float:posy,Float:posz;
+	GetPlayerPos(ObjectVar[objectid][a_player],posx,posy,posz);
+    if(ObjectStatus[playerid][objectid] == 0 && PlayerClose(playerid,posx,posy,posz,ObjectVar[objectid][spawndist]) == 1 && ObjectVar[objectid][attached] == 0 && ObjAtt[playerid][objectid] == 0) {
+		if(OBstreamcount[playerid] < MAX_ACTIVE_OBJECTS) {
+  			OBstreamcount[playerid]++;
+	    	ObjectID[playerid][objectid] = CreatePlayerObject(playerid,ObjectVar[objectid][model],0.0,0.0,0.0,0.0,0.0,0.0);
+			AttachPlayerObjectToPlayer(playerid,ObjectID[playerid][objectid],ObjectVar[objectid][a_player],ObjectVar[objectid][x_off],ObjectVar[objectid][y_off],ObjectVar[objectid][z_off],ObjectVar[objectid][x_rt],ObjectVar[objectid][y_rt],ObjectVar[objectid][z_rt]);
+			ObjectStatus[playerid][objectid] = 1;
+			ObjAtt[playerid][objectid] = 1;
+			return 1;
+		}
+	}
+	if(PlayerClose(playerid,posx,posy,posz,ObjectVar[objectid][spawndist]) == 0 && ObjectStatus[playerid][objectid] == 1) {
+	    DestroyPlayerObject(playerid,ObjectID[playerid][objectid]);
+	   	OBstreamcount[playerid]--;
+	   	ObjectStatus[playerid][objectid] = 0;
+	   	ObjectVar[objectid][attached] = 0;
+	   	return 1;
+	}
+	if(ObjectNull[playerid][objectid] == 1) {
+ 		DestroyPlayerObject(playerid,ObjectID[playerid][objectid]);
+		OBstreamcount[playerid]--;
+		ObjectStatus[playerid][objectid] = 0;
+		ObjectNull[playerid][objectid] = 0;
+		ObjectVar[objectid][attached] = 0;
+		return 1;
+	}
+	return 0;
+}
+
+stock GetObjectSector(objectid)
+{
+	new xsec = floatround(((ObjectVar[objectid][x_ent] +4000) / 500), floatround_floor);
+	new ysec = floatround(((ObjectVar[objectid][y_ent] +4000) / 500), floatround_floor);
+	return (xsec * 16) + ysec;
+}
+
+stock UpdateObjectSectorInfo()
+{
+    new secnum;
+	for(new i = 0;i<MAX_SECTORS;i++) {
+	    SectorObjectCount[i] = 0;
+	}
+   	for(new j = 0;j<overallobjectcount;j++) {
+		secnum = GetObjectSector(j);
+		SectorObjectCount[secnum]++;
+		SectorObjects[secnum][SectorObjectCount[secnum]] = j;
+	}
+	return 1;
+}
+
+//---------------- AVAILLABLE OBJECT COMMANDS ---------------//
+
+stock CreateStreamObject(modelid,Float:x,Float:y,Float:z,Float:xrot,Float:yrot,Float:zrot,Float:spawn_dist)
+{
+    for(new i = 0;i<MAX_OVERALL_OBJECTS;i++) {
+	    if(ObjectVar[i][valid] == 0) {
+			ObjectVar[i][model] = modelid;
+			ObjectVar[i][x_ent] = x;
+			ObjectVar[i][y_ent] = y;
+			ObjectVar[i][z_ent] = z;
+			ObjectVar[i][x_rot] = xrot;
+			ObjectVar[i][y_rot] = yrot;
+			ObjectVar[i][z_rot] = zrot;
+			ObjectVar[i][valid] = 1;
+			ObjectVar[i][spawndist] = spawn_dist;
+			if(ObjectVar[i][id_prev_used] == 0) {
+			    overallobjectcount++;
+			}
+			UpdateObjectSectorInfo();
+			return i;
+		}
+	}
+	return 0;
+}
+
+stock DestroyStreamObject(objectid)
+{
+	if(ObjectVar[objectid][valid] == 1) {
+		ObjectVar[objectid][valid] = 0;
+		ObjectVar[objectid][id_prev_used] = 1;
+		for(new playerid = 0;playerid<MAX_SLOTS_tAxI;playerid++) {
+        	if(ObjectStatus[playerid][objectid] == 1) {
+		   		DestroyPlayerObject(playerid,ObjectID[playerid][objectid]);
+		   		OBstreamcount[playerid]--;
+		   		ObjectStatus[playerid][objectid] = 0;
+			}
+		}
+		return 1;
+    }
+    return 0;
+}
+
+stock AttachStreamObjectToPlayer(objectid,playerid,Float:xoffset,Float:yoffset,Float:zoffset,Float:rotX,Float:rotY,Float:rotZ)
+{
+	if(PlAO[playerid] > -1) {
+	    return 0;
+	}
+    ObjectVar[objectid][attached] = 1;
+	ObjectVar[objectid][a_player] = playerid;
+	ObjectVar[objectid][x_off] = xoffset;
+	ObjectVar[objectid][y_off] = yoffset;
+	ObjectVar[objectid][z_off] = zoffset;
+	ObjectVar[objectid][x_rt] = rotX;
+	ObjectVar[objectid][y_rt] = rotY;
+	ObjectVar[objectid][z_rt] = rotZ;
+	PlAO[playerid] = objectid;
+	return 1;
+}
+
+stock DetachStreamObjectFromPlayer(playerid)
+{
+	if(ObjectVar[PlAO[playerid][attached] == 1 && ObjectVar[PlAO[playerid][a_player] == playerid) {
+		ObjectNull[playerid][PlAO[playerid]] = 1;
+		ObjAtt[playerid][PlAO[playerid]] = 0;
+		PlAO[playerid] = -1;
+	}
+}
+
+stock IsAnyObjectAttachedToPlayer(playerid)
+{
+	if(PlAO[playerid] > -1) {
+	    return 1;
+	}
+	return 0;
+}
+
+stock GetPlayerAttachedObject(playerid)
+{
+	if(IsAnyObjectAttachedToPlayer(playerid) == 1) {
+	    return PlAO[playerid];
+	}
+	return -1;
+}
+
+stock IsObjectAttachedToPlayer(objectid,playerid)
+{
+    if(IsAnyObjectAttachedToPlayer(playerid) == 1) {
+        if(PlAO[playerid] == objectid) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+stock IsObjectAttachedToAnyPlayer(objectid)
+{
+	if(ObjectVar[objectid][attached] == 1) {
+	    return 1;
+	}
+	return 0;
+}
+
+stock MoveStreamObject(objectid,Float:X,Float:Y,Float:Z,Float:Speed)
+{
+    for(new i = 0;i<MAX_SLOTS_tAxI;i++) {
+        if(ObjectStatus[i][objectid] == 1 && ObjectVar[objectid][attached] == 0) {
+            MovePlayerObject(i,ObjectID[i][objectid],X,Y,Z,Speed);
+        }
+    }
+}
+
+stock StopStreamObject(objectid)
+{
+    for(new i = 0;i<MAX_SLOTS_tAxI;i++) {
+        if(ObjectStatus[i][objectid] == 1 && ObjectVar[objectid][attached] == 0) {
+            StopPlayerObject(i,ObjectID[i][objectid]);
+        }
+    }
+}
+
+stock IsValidPlayerStreamObject(objectid,playerid)
+{
+	if(ObjectStatus[playerid][objectid] == 1) {
+	    return 1;
+	}
+	return 0;
+}
+
+stock SetObjectInfo(objectid,modelid,Float:X,Float:Y,Float:Z,Float:rotX,Float:rotY,Float:rotZ)
+{
+	new tmp = ObjectVar[objectid][model];
+    ObjectVar[objectid][model] = modelid;
+    ObjectVar[objectid][x_ent] = X;
+    ObjectVar[objectid][y_ent] = Y;
+    ObjectVar[objectid][z_ent] = Z;
+    ObjectVar[objectid][x_rot] = rotX;
+    ObjectVar[objectid][y_rot] = rotY;
+    ObjectVar[objectid][z_rot] = rotZ;
+    for(new p = 0;p<MAX_SLOTS_tAxI;p++) {
+        if(ObjectStatus[p][objectid] == 1 && ObjectVar[objectid][attached] == 0) {
+            if(tmp == modelid) {
+                SetPlayerObjectPos(p,ObjectID[p][objectid],X,Y,Z);
+                SetPlayerObjectRot(p,ObjectID[p][objectid],rotX,rotY,rotZ);
+            }
+            else {
+            	DestroyPlayerObject(p,ObjectID[p][objectid]);
+            	ObjectID[p][objectid] = CreatePlayerObject(p,ObjectVar[objectid][model],ObjectVar[objectid][x_ent],ObjectVar[objectid][y_ent],ObjectVar[objectid][z_ent],ObjectVar[objectid][x_rot],ObjectVar[objectid][y_rot],ObjectVar[objectid][z_rot]);
+			}
+        }
+    }
+}

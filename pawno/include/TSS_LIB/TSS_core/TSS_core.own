@@ -1,0 +1,367 @@
+/*
+
+This is the Core of all of the various systems. Thisfile includes most of the setup options and alot
+of the essential callbacks that each of the streamers require to run.
+
+LICENCE:=-
+
+    tAxI's Streamer Systems: CORE code library - for SA-MP Multiplayer Modification
+    of Grand Theft Auto - San Andreas.
+
+    Copyright (C) 2008  Chris Johnstone (tAxI/Necrioss)
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program. If not, see <http://www.gnu.org/licenses/>.
+
+	-=============================================================================================-
+ 	|=============================================================================================|
+	|NATIVE AND AVAILLABLE COMMAND FUNCTIONS:                                                     |
+	|=============================================================================================|
+ 	|=============================================================================================|
+
+			native tAxI_OnGameModeInit()
+			native tAxI_OnVehicleDeath(vehicleid)
+			native tAxI_OnPlayerEnterVehicle(playerid,vehicleid)
+			native tAxI_OnPlayerExitVehicle(vehicleid)
+			native tAxI_OnVehicleMod(vehicleid,componentid)
+			native tAxI_OnVehicleRespray(vehicleid,color1,color2)
+			native tAxI_OnVehiclePaintjob(vehicleid,paintjobid)
+			native tAxI_OnVehicleSpawn(vehicleid)
+			native tAxI_OnPlayerKeyStateChange(playerid,newkeys)
+			native tAxI_OnPlayerStateChange(playerid,newstate,oldstate)
+			native tAxI_OnPlayerDisconnect(playerid)
+			native tAxI_OnPlayerConnect(playerid)
+			native SetActiveStreamers(bool:vehicle,bool:minimap,bool:pickup,bool:object)
+			native ------------------------------------------------------------
+			
+	|=============================================================================================|
+	-=============================================================================================-
+
+*/
+
+#define MAX_SECTORS 256
+
+new MAX_SLOTS_tAxI;
+new vSecActive[MAX_SECTORS];
+new vstreamactive = 0;
+new obstreamactive = 0;
+new mmstreamactive = 0;
+new pustreamactive = 0;
+
+#include "TSS_LIB/TSS_ext/TSS_ext_vehicles.own"
+#include "TSS_LIB/TSS_ext/TSS_ext_objects.own"
+#include "TSS_LIB/TSS_ext/TSS_ext_pickups.own"
+#include "TSS_LIB/TSS_ext/TSS_ext_mapicons.own"
+
+forward InitiateSectorSystem();
+forward SectorScan();
+
+stock SetActiveStreamers(bool:vehicle,bool:minimap,bool:pickup,bool:object)
+{
+	if(vehicle == true) {
+		vstreamactive = 1;
+	}
+	if(object == true) {
+		obstreamactive = 1;
+	}
+	if(minimap == true) {
+		mmstreamactive = 1;
+	}
+	if(pickup == true) {
+		pustreamactive = 1;
+	}
+	if(vehicle == false) {
+		vstreamactive = 0;
+	}
+	if(object == false) {
+		obstreamactive = 0;
+	}
+	if(minimap == false) {
+		mmstreamactive = 0;
+	}
+	if(pickup == false) {
+		pustreamactive = 0;
+	}
+}
+
+public InitiateSectorSystem()
+{
+	UpdateVehicleSectorInfo();
+	UpdateIconSectorInfo();
+	UpdatePickupSectorInfo();
+	UpdateObjectSectorInfo();
+	SetTimer("SectorScan",1000,1);
+	return 1;
+}
+
+public SectorScan()
+{
+    new psec[MAX_PLAYERS];
+    for(new i = 0;i<MAX_SECTORS;i++) {
+		vSecActive[i] = 0;
+	}
+    for(new i = 0;i<MAX_SLOTS_tAxI;i++) {
+        if(IsPlayerConnected(i)) {
+			psec[i] = GetPlayerSector(i);
+   			if(vSecActive[psec[i]] == 0) {
+			    vSecActive[psec[i]] = 1;
+			}
+			if(vSecActive[psec[i]+1] == 0) {
+	    		vSecActive[psec[i]+1] = 1;
+			}
+			if(vSecActive[psec[i]-1] == 0) {
+			    vSecActive[psec[i]-1] = 1;
+			}
+			if(vSecActive[psec[i]-15] == 0) {
+			    vSecActive[psec[i]-15] = 1;
+			}
+			if(vSecActive[psec[i]-16] == 0) {
+			    vSecActive[psec[i]-16] = 1;
+			}
+			if(vSecActive[psec[i]-17] == 0) {
+	    		vSecActive[psec[i]-17] = 1;
+			}
+			if(vSecActive[psec[i]+15] == 0) {
+			    vSecActive[psec[i]+15] = 1;
+			}
+			if(vSecActive[psec[i]+16] == 0) {
+			    vSecActive[psec[i]+16] = 1;
+			}
+			if(vSecActive[psec[i]+17] == 0) {
+			    vSecActive[psec[i]+17] = 1;
+			}
+			if(vstreamactive == 1) {
+    			StreamVehicles(i,psec[i],psec[i]+1,psec[i]-1,psec[i]+15,psec[i]-15,psec[i]+16,psec[i]-16,psec[i]+17,psec[i]-17);
+			}
+			if(mmstreamactive == 1) {
+				StreamMapIcons(i,psec[i],psec[i]+1,psec[i]-1,psec[i]+15,psec[i]-15,psec[i]+16,psec[i]-16,psec[i]+17,psec[i]-17);
+			}
+			if(obstreamactive == 1) {
+				StreamObjects(i,psec[i],psec[i]+1,psec[i]-1,psec[i]+15,psec[i]-15,psec[i]+16,psec[i]-16,psec[i]+17,psec[i]-17);
+			}
+			if(pustreamactive == 1) {
+				StreamPickups(i,psec[i],psec[i]+1,psec[i]-1,psec[i]+15,psec[i]-15,psec[i]+16,psec[i]-16,psec[i]+17,psec[i]-17);
+			}
+		}
+	}
+	CleanupVehicles();
+	CleanupPickups();
+}
+
+stock tAxI_OnPlayerDisconnect(playerid)
+{
+    for(new iconid = 0;iconid<MAX_ICONS;iconid++) {
+        if(IconStatus[playerid][iconid] == 1) {
+		   	RemovePlayerMapIcon(playerid,IconID[playerid][iconid]);
+		   	MIstreamcount[playerid]--;
+		   	IconStatus[playerid][iconid] = 0;
+		}
+    }
+    for(new objectid = 0;objectid<MAX_OBJECTS;objectid++) {
+        if(ObjectStatus[playerid][objectid] == 1) {
+		   	DestroyPlayerObject(playerid,ObjectID[playerid][objectid]);
+		   	OBstreamcount[playerid]--;
+		   	ObjectStatus[playerid][objectid] = 0;
+		}
+    }
+	return 1;
+}
+
+stock tAxI_OnVehicleDeath(vehicleid)
+{
+	new vstreamid = GetVehicleStreamID(vehicleid);
+    if(vstreamactive == 1) {
+        VehicleInfo[vstreamid][fspawn] = 0;
+    	if(Abandoned[vehicleid] == 1) {
+	    	Abandoned[vehicleid] = 0;
+	 		KillTimer(atimer[vehicleid]);
+		}
+		VehicleInfo[vstreamid][limbo] = 1;
+		if(VehicleInfo[vstreamid][staticv] == 1) {
+		    SetTimerEx("ResetStaticVehicle",VehicleInfo[vstreamid][resp_delay],0,"x",vstreamid);
+		    return 1;
+		}
+		if(VehicleInfo[vstreamid][temporary] == 1) {
+		    	SetTimerEx("RemoveTempVehicle",10000,0,"x",vehicleid);
+		    	return 1;
+		}
+		else {
+			SetTimerEx("DeathProcess",10000,0,"x",vehicleid);
+			return 1;
+		}
+	}
+	return 0;
+}
+
+stock tAxI_OnGameModeInit()
+{
+    MAX_SLOTS_tAxI = GetMaxPlayers();
+    SetTimer("InitiateSectorSystem",5000,0);
+}
+
+stock tAxI_OnPlayerEnterVehicle(playerid,vehicleid)
+{
+	lastv[playerid] = vehicleid;
+    if(vstreamactive == 1) {
+		if(Abandoned[vehicleid] == 1) {
+		    Abandoned[vehicleid] = 0;
+		 	KillTimer(atimer[vehicleid]);
+		}
+		return 1;
+	}
+	return 0;
+}
+
+stock tAxI_OnVehicleMod(vehicleid,componentid)
+{
+    if(vstreamactive == 1) {
+		if(Automodsave == true) {
+		    AddStreamVehicleMod(GetVehicleStreamID(vehicleid),componentid);
+		}
+		return 1;
+	}
+	return 0;
+}
+
+stock tAxI_OnVehiclePaintjob(vehicleid,paintjobid)
+{
+    if(vstreamactive == 1) {
+		if(Automodsave == true) {
+		    ChangeStreamVehiclePaintjob(GetVehicleStreamID(vehicleid),paintjobid);
+		}
+		return 1;
+	}
+	return 0;
+}
+
+stock tAxI_OnVehicleRespray(vehicleid,color1,color2)
+{
+    if(vstreamactive == 1) {
+		if(Automodsave == true) {
+		    ChangeStreamVehicleColor(GetVehicleStreamID(vehicleid),color1,color2);
+		}
+		return 1;
+	}
+	return 0;
+}
+
+stock tAxI_OnVehicleSpawn(vehicleid)
+{
+    if(vstreamactive == 1) {
+		SetTimerEx("ConvertVehicleToStream",50,0,"x",vehicleid);
+	}
+}
+
+stock tAxI_OnPlayerStateChange(playerid,newstate,oldstate)
+{
+	if (oldstate == PLAYER_STATE_DRIVER) {
+ 		if(antifall[playerid] == 1 && newstate == PLAYER_STATE_ONFOOT) {
+    		if(cmdoff[playerid] == 1) {
+     			cmdoff[playerid] = 0;
+     		}
+      		else {
+       			PutPlayerInVehicle(playerid,lastv[playerid],0);
+			}
+       	}
+    }
+    if (oldstate == PLAYER_STATE_PASSENGER) {
+ 		if(antifall[playerid] == 1 && newstate == PLAYER_STATE_ONFOOT) {
+    		if(cmdoff[playerid] == 1) {
+     			cmdoff[playerid] = 0;
+     		}
+      		else {
+       			PutPlayerInVehicle(playerid,lastv[playerid],1);
+			}
+       	}
+    }
+    if(newstate == PLAYER_STATE_DRIVER) {
+        SetVehicleUsed(GetPlayerVehicleID(playerid),true);
+    }
+}
+
+stock tAxI_OnPlayerExitVehicle(vehicleid)
+{
+    if(vstreamactive == 1) {
+		new v = GetVehicleStreamID(vehicleid);
+		Abandoned[vehicleid] = 1;
+		atimer[vehicleid] = SetTimerEx("ResetAbandonedVehicle",300000,0,"x",v);
+		return 1;
+	}
+	return 0;
+}
+
+stock tAxI_OnPlayerKeyStateChange(playerid,newkeys)
+{
+	if(newkeys == KEY_EXIT_VEHICLE) {
+		cmdoff[playerid] = 1;
+	}
+	return 1;
+}
+
+stock tAxI_OnPlayerConnect(playerid)
+{
+    PlAO[playerid] = -1;
+}
+
+//--------------------------------------------
+
+stock GetPointSector(Float:x,Float:y)
+{
+	new xsec = floatround(((x +4000) / 500), floatround_floor);
+	new ysec = floatround(((y +4000) / 500), floatround_floor);
+	return (xsec * 16) + ysec;
+}
+
+stock GetPlayerSector(playerid)
+{
+	new Float:pos[3];
+	if(IsPlayerConnected(playerid)) {
+		GetPlayerPos(playerid,pos[0],pos[1],pos[2]);
+		new xsec = floatround(((pos[0] +4000) / 500), floatround_floor);
+		new ysec = floatround(((pos[1] +4000) / 500), floatround_floor);
+		return (xsec * 16) + ysec;
+	}
+	return 999;
+}
+
+stock PlayerClose(playerid,Float:x,Float:y,Float:z,Float:MAX)
+{
+	new Float:PPos[3];
+	if(IsPlayerConnected(playerid)) {
+			GetPlayerPos(playerid, PPos[0], PPos[1], PPos[2]);
+			if (PPos[0] >= floatsub(x, MAX) && PPos[0] <= floatadd(x, MAX)
+			&& PPos[1] >= floatsub(y, MAX) && PPos[1] <= floatadd(y, MAX)
+			&& PPos[2] >= floatsub(z, MAX) && PPos[2] <= floatadd(z, MAX))
+			{
+				return 1;
+			}
+	}
+	return 0;
+}
+
+stock PlayersClose(Float:x,Float:y,Float:z,Float:MAX)
+{
+	new Float:PPos[3];
+	for(new i = 0;i<MAX_SLOTS_tAxI;i++) {
+		if(IsPlayerConnected(i)) {
+			GetPlayerPos(i, PPos[0], PPos[1], PPos[2]);
+			if (PPos[0] >= floatsub(x, MAX) && PPos[0] <= floatadd(x, MAX)
+			&& PPos[1] >= floatsub(y, MAX) && PPos[1] <= floatadd(y, MAX)
+			&& PPos[2] >= floatsub(z, MAX) && PPos[2] <= floatadd(z, MAX))
+			{
+				return 1;
+			}
+		}
+	}
+	return 0;
+}

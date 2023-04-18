@@ -1,0 +1,193 @@
+/*
+
+    tAxI's Streamer Systems: pickups code Library for SA-MP Multiplayer Modification
+    of Grand Theft Auto - San Andreas.
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program. If not, see <http://www.gnu.org/licenses/>.
+
+=============================================================================================
+
+	native CreateStreamPickup(modelid,type,Float:x,Float:y,Float:z,custom_type)
+	native DestroyStreamPickup(pstreamid)
+	native SetStreamPickupInfo(pstreamid,modelid,type,Float:x,Float:y,Float:z,custom_type)
+	native GetPickupStreamID(pickupid)
+	native GetStreamPickupID(pstreamid)
+	native GetStreamPickupCustomType(pstreamid)
+
+=============================================================================================*/
+#define MAX_STREAM_PICKUPS 3000
+#define MAX_ACTIVE_PICKUPS 250
+#define MAX_SECTOR_PICKUPS 200
+
+new pucount = 0;
+new PUstreamcount = 0;
+new pustream[MAX_ACTIVE_PICKUPS];
+new SectorPickups[MAX_SECTORS][MAX_SECTOR_PICKUPS];
+new SectorPickupCount[MAX_SECTORS];
+
+enum puInfo
+{
+	
+	model,
+	ptype,
+	Float:x_spawn,
+	Float:y_spawn,
+	Float:z_spawn,
+	spawned,
+	idnum,
+ 	valid,
+ 	id_prev_used,
+ 	cust_type,
+};
+
+new PickupInfo[MAX_STREAM_PICKUPS][puInfo];
+
+stock GetPickupSpawnSector(pstreamid)
+{
+    new xsec = floatround(((PickupInfo[pstreamid][x_spawn] +4000) / 500), floatround_floor);
+	new ysec = floatround(((PickupInfo[pstreamid][y_spawn] +4000) / 500), floatround_floor);
+	return (xsec * 16) + ysec;
+}
+
+stock CleanupPickups()
+{
+	for(new i = 0;i<pucount;i++) {
+		if(PickupInfo[i][spawned] == 1 && PlayersClose(PickupInfo[i][x_spawn],PickupInfo[i][y_spawn],PickupInfo[i][z_spawn],200) == 0) {
+			PickupInfo[i][spawned] = 0;
+			DestroyPickup(PickupInfo[i][idnum]);
+			PUstreamcount--;
+			PickupInfo[i][idnum] = -1;
+		}
+	}
+}
+
+stock StreamPickups(playerid,v1,v2,v3,v4,v5,v6,v7,v8,v9)
+{
+    new p,i;
+    new sec[9];
+    sec[0] = v1;
+    sec[1] = v2;
+    sec[2] = v3;
+    sec[3] = v4;
+    sec[4] = v5;
+    sec[5] = v6;
+    sec[6] = v7;
+    sec[7] = v8;
+    sec[8] = v9;
+    for(new k = 0;k<8;k++) {
+        i = sec[k];
+        if(vSecActive[i] == 1) {
+    		for(new j = 1;j<=SectorPickupCount[i];j++) {
+        		p = SectorPickups[i][j];
+        		if(PickupInfo[p][valid] == 1 && PickupInfo[p][spawned] == 0 && PlayerClose(playerid,PickupInfo[p][x_spawn],PickupInfo[p][y_spawn],PickupInfo[p][z_spawn],200) == 1) {
+					if(PUstreamcount < MAX_ACTIVE_PICKUPS) {
+			       	    PickupInfo[p][spawned] = 1;
+						PickupInfo[p][idnum] = CreatePickup(PickupInfo[p][model],PickupInfo[p][ptype],PickupInfo[p][x_spawn],PickupInfo[p][y_spawn],PickupInfo[p][z_spawn]);
+						pustream[PickupInfo[p][idnum]] = p;
+						PUstreamcount++;
+					}
+				}
+			}
+    	}
+ 	}
+}
+
+stock UpdatePickupSectorInfo()
+{
+    new secnum;
+	for(new i = 0;i<MAX_SECTORS;i++) {
+	    SectorPickupCount[i] = 0;
+	}
+   	for(new i = 0;i<MAX_STREAM_PICKUPS;i++) {
+	    if(PickupInfo[i][valid] == 1) {
+			secnum = GetPickupSpawnSector(i);
+			SectorPickupCount[secnum]++;
+			SectorPickups[secnum][SectorPickupCount[secnum]] = i;
+		}
+	}
+	return 1;
+}
+
+stock CreateStreamPickup(modelid,type,Float:x,Float:y,Float:z,custom_type)
+{
+	for(new i = 0;i<MAX_STREAM_PICKUPS;i++) {
+	    if(PickupInfo[i][valid] == 0) {
+	        PickupInfo[i][valid] = 1;
+			PickupInfo[i][model] = modelid;
+			PickupInfo[i][x_spawn] = x;
+			PickupInfo[i][y_spawn] = y;
+			PickupInfo[i][z_spawn] = z;
+			PickupInfo[i][idnum] = 0;
+			PickupInfo[i][ptype] = type;
+			if(custom_type > -1) {
+				PickupInfo[i][cust_type] = custom_type;
+			}
+			if(PickupInfo[i][id_prev_used] == 0) {
+			    pucount++;
+			}
+			UpdatePickupSectorInfo();
+			return i;
+		}
+	}
+	return 0;
+}
+
+stock DestroyStreamPickup(pstreamid)
+{
+    PickupInfo[pstreamid][valid] = 0;
+    PickupInfo[pstreamid][id_prev_used] = 1;
+    PickupInfo[pstreamid][cust_type] = -1;
+	if(PickupInfo[pstreamid][spawned] == 1) {
+    	DestroyPickup(PickupInfo[pstreamid][idnum]);
+	}
+	UpdatePickupSectorInfo();
+    return 1;
+}
+
+stock SetStreamPickupInfo(pstreamid,modelid,type,Float:x,Float:y,Float:z,custom_type)
+{
+	if(PickupInfo[pstreamid][valid] == 1) {
+	    PickupInfo[pstreamid][model] = modelid;
+	    PickupInfo[pstreamid][x_spawn] = x;
+	    PickupInfo[pstreamid][y_spawn] = y;
+	    PickupInfo[pstreamid][z_spawn] = z;
+	    PickupInfo[pstreamid][ptype] = type;
+	    PickupInfo[pstreamid][cust_type] = custom_type
+	    UpdatePickupSectorInfo();
+	    return 1;
+	}
+	return 0;
+}
+
+stock GetPickupStreamID(pickupid)
+{
+	return pustream[pickupid];
+}
+
+stock GetStreamPickupID(pstreamid)
+{
+	if(PickupInfo[pstreamid][spawned] == 0) {
+	    return -1;
+	}
+	return PickupInfo[pstreamid][idnum];
+}
+
+stock GetStreamPickupCustomType(pstreamid)
+{
+	if(PickupInfo[pstreamid][spawned] == 0) {
+	    return -1;
+	}
+	return PickupInfo[pstreamid][cust_type];
+}
+
