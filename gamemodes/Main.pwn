@@ -256,7 +256,6 @@ stock ProxDetector(Float:radi, playerid, const str[], color)
         return 1;
 }
 
-// ================================================= PLAYER CONNECT/DISCONNECT ======================================================= //
 public OnPlayerConnect(playerid){
 	dbHandleRaceCheck[playerid]++;
 	ViewMapping();
@@ -342,10 +341,7 @@ public OnPlayerDisconnectUpdate(playerid)
 {
 	return 1;
 }
-// =================================================================================================================================== //
 
-
-// ================================================= GAMEMODE INIT/EXIT ============================================================== //
 public OnGameModeInit()
 {
 	SetGameModeText("Shakal by theDmitr");
@@ -373,4 +369,3 @@ public OnGameModeExit()
 	mysql_close(dbHandle);
 	return 1;
 }
-// =================================================================================================================================== //

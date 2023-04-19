@@ -2,7 +2,7 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "build-normal",
+      "label": "PAWN-BUILD",
       "type": "shell",
       "command": "${workspaceRoot}/pawno/pawncc.exe",
       "args": ["${file}", "--%", "-Dgamemodes", "-;+", "-(+", "-d3"],

@@ -147,9 +147,6 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 				if (!response) Kick(playerid);
 				for (new i = 0; i < SALT_LENGTH - 1; i++)  Player[playerid][salt][i] = random(94) + 33; 
 				SHA256_PassHash(inputtext, Player[playerid][salt], Player[playerid][password], MAX_PASSWORD_LENGTH);
-
-				//new query[] = "INSERT INTO `users` (`name`, `password`, `salt`) VALUES ('%e', '%s', '%e')";
-				//mysql_format(dbHandle, query, sizeof(query) - 6 + MAX_PLAYER_NAME + MAX_PASSWORD_LENGTH + SALT_LENGTH, query, Player[playerid][name], Player[playerid][password], Player[playerid][salt]);
 				
 				new query[221];
 				mysql_format(dbHandle, query, sizeof query, "INSERT INTO `users` (`name`, `password`, `salt`) VALUES ('%e', '%s', '%e')", Player[playerid][name], Player[playerid][password], Player[playerid][salt]);
